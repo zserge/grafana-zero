@@ -160,16 +160,56 @@ class Response:
         return cls(status="404 Not Found")
 
 
+class VarInts:
+    def __init__(self):
+        self.data = bytearray()
+    def append(self, x):
+        while True:
+            b = x & 0x7f
+            x >>= 7
+            if x:
+                self.data.append(b | 0x80)
+            else:
+                self.data.append(b)
+                break
+
+    def read(self):
+        i = 0
+        while i < len(self.data):
+            shift = 0
+            n = 0
+            while True:
+                x = self.data[i]
+                i = i + 1
+                n |= (x & 0x7f) << shift
+                shift += 7
+                if not (x & 0x80): break
+            yield n
+
+
 class TimeSeries:
     def __init__(self, name):
         self.name = name
         self.last = 0
-        self.data = []
+        self.data = VarInts()
 
-    def add(self, t, x):
-        if t > self.last:
-            self.last = t
-        self.data.append([t, x])
+    def add(self, timestamp, value):
+        t = int(timestamp)
+        x = int(value)
+        if t > self.last: self.last = t
+        self.data.append(t)
+        self.data.append(x)
+
+    def iterate(self):
+        it = self.data.read()
+        while True:
+            try:
+                t = next(it)
+                x = next(it)
+                yield t
+                yield x
+            except StopIteration:
+                break
 
     def timestamps(self, start, end, interval):
         t = start
@@ -179,16 +219,15 @@ class TimeSeries:
 
     def values(self, start, end, interval):
         t = start
-        i = 0
+        it = self.iterate()
+        timestamp = -1
+        value = 0
         while t < end:
-            while i < len(self.data) and self.data[i][0] < t:
-                i = i + 1
-            x = 0
-            if i < len(self.data):
-                x = self.data[i][1]
-            yield x
+            while timestamp < t:
+                timestamp = next(it, t)
+                value = next(it, 0)
+            yield value
             t = t + interval
-
 
 class FakeTimeSeries:
     def __init__(self, name):
