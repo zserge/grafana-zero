@@ -163,9 +163,11 @@ class Response:
 class VarInts:
     def __init__(self):
         self.data = bytearray()
+
     def append(self, x):
+        x = (x >> 31) ^ (x << 1)
         while True:
-            b = x & 0x7f
+            b = x & 0x7F
             x >>= 7
             if x:
                 self.data.append(b | 0x80)
@@ -181,9 +183,11 @@ class VarInts:
             while True:
                 x = self.data[i]
                 i = i + 1
-                n |= (x & 0x7f) << shift
+                n |= (x & 0x7F) << shift
                 shift += 7
-                if not (x & 0x80): break
+                if not (x & 0x80):
+                    break
+            n = (n >> 1) ^ -(n & 1)
             yield n
 
 
@@ -196,7 +200,8 @@ class TimeSeries:
     def add(self, timestamp, value):
         t = int(timestamp)
         x = int(value)
-        if t > self.last: self.last = t
+        if t > self.last:
+            self.last = t
         self.data.append(t)
         self.data.append(x)
 
@@ -228,6 +233,7 @@ class TimeSeries:
                 value = next(it, 0)
             yield value
             t = t + interval
+
 
 class FakeTimeSeries:
     def __init__(self, name):
