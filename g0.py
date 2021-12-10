@@ -241,8 +241,9 @@ class TimeSeries:
 
 
 class FakeTimeSeries:
-    def __init__(self, name):
+    def __init__(self, name, f):
         self.name = name
+        self.f = f
 
     def add(self, t, x):
         pass
@@ -256,7 +257,7 @@ class FakeTimeSeries:
     def values(self, start, end, interval):
         t = start
         while t < end:
-            yield (t % 42)
+            yield self.f(t)
             t = t + interval
 
 
@@ -400,7 +401,7 @@ This is the sample Grafana dashboard served by ESP32 using **Grafana Zero** firm
 The microcontrolles is the backend and the TSDB, no other web servers are required.
 """
 
-v = FakeTimeSeries("V")
+v = FakeTimeSeries("V", lambda t: t % 42)
 rssi = TimeSeries("T")
 
 g.add_text_panel("Hello, ESP32!", markdown)
