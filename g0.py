@@ -194,25 +194,30 @@ class VarInts:
 class TimeSeries:
     def __init__(self, name):
         self.name = name
-        self.last = 0
+        self.last_t = 0
+        self.last_x = 0
         self.data = VarInts()
 
     def add(self, timestamp, value):
         t = int(timestamp)
         x = int(value)
-        if t > self.last:
-            self.last = t
-        self.data.append(t)
-        self.data.append(x)
+        self.data.append(t - self.last_t)
+        self.last_t = t
+        self.data.append(x - self.last_x)
+        self.last_x = x
 
     def iterate(self):
         it = self.data.read()
+        last_t = 0
+        last_x = 0
         while True:
             try:
                 t = next(it)
                 x = next(it)
-                yield t
-                yield x
+                last_t = t + last_t
+                yield last_t
+                last_x = x + last_x
+                yield last_x
             except StopIteration:
                 break
 
