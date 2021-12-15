@@ -57,6 +57,22 @@ try:
 
 except ImportError:
     import time
+    import urandom
+    import _thread
+
+    def randint(min, max):
+        span = max - min + 1
+        div = 0x3fffffff // span
+        offset = urandom.getrandbits(30) // div
+        val = min + offset
+        return val
+
+    def ticker():
+        global rssi
+        while True:
+            time.sleep(1)
+            rssi.add(time.time(), randint(-34, -10))
+    _thread.start_new_thread(ticker, [])
 
     def now():
         return time.time()
@@ -214,7 +230,7 @@ class TimeSeries:
             try:
                 t = next(it)
                 x = next(it)
-                last_t = t + last_t
+                last_t = (t & 0xffffffff) + last_t
                 yield last_t
                 last_x = x + last_x
                 yield last_x
@@ -234,8 +250,12 @@ class TimeSeries:
         value = 0
         while t < end:
             while timestamp < t:
-                timestamp = next(it, t)
-                value = next(it, 0)
+                try:
+                    timestamp = next(it)
+                    value = next(it)
+                except StopIteration:
+                    timestamp = t
+                    value = 0
             yield value
             t = t + interval
 
@@ -311,6 +331,7 @@ class Grafana:
         while True:
             gc.collect()
             print("memory", gc.mem_free())
+            print("tsdb", len(rssi.data.data))
             conn, addr = s.accept()
             req = Request.create(conn)
             if not req:
